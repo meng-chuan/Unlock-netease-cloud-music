@@ -76,7 +76,6 @@ const proxy = {
 		}
 	},
 	abort: (socket, from) => {
-		// console.log('call abort', from)
 		if (socket) socket.end()
 		if (socket && !socket.destroyed) socket.destroy()
 	},
@@ -113,7 +112,6 @@ const proxy = {
 		try {
 			const allow = server.whitelist.some(match)
 			const deny = server.blacklist.some(match)
-			// console.log('allow', allow, 'deny', deny)
 			if (!allow && deny) {
 				return Promise.reject(ctx.error = 'filter')
 			}
