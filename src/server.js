@@ -50,10 +50,6 @@ const requestHandler = [
 
 const proxy = {
 	core: {
-		requestDispatcher: (req, res) => {
-			// dispatch requests to their corresponding handlers
-
-		},
 		mitm: (req, res) => {
 			for(const ruleId in requestHandler) {
 				const rule = requestHandler[ruleId]
