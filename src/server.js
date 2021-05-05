@@ -7,33 +7,61 @@ const sni = require('./sni')
 const hook = require('./hook')
 const request = require('./request')
 
+const requestHandler = [
+	{name: "block-comments", matcher: (url) => url.startsWith('http://interface.music.163.com/eapi/v1/resource/comments/'), handler: (req, res) => {
+		const ctx = {res, req}
+		Promise.resolve()
+		// .then(() => proxy.protect(ctx))
+		// .then(() => proxy.authenticate(ctx))
+		// .then(() => hook.request.before(ctx))
+		// .then(() => proxy.filter(ctx))
+		.then(() => proxy.log(ctx))
+		// .then(() => proxy.mitm.request(ctx))
+		// .then(() => hook.request.after(ctx))
+		// .then(() => proxy.mitm.response(ctx))
+		.catch(() => proxy.mitm.close(ctx))
+	}},
+	{name: "get-pac-config", matcher: (url) => url == '/proxy.pac', handler: (req, res) => {
+		const url = parse('http://' + req.headers.host)
+		res.writeHead(200, {'Content-Type': 'application/x-ns-proxy-autoconfig'})
+		res.end(`
+			function FindProxyForURL(url, host) {
+				if (${Array.from(hook.target.host).map(host => (`host == '${host}'`)).join(' || ')}) {
+					return 'PROXY ${url.hostname}:${url.port || 80}'
+				}
+				return 'DIRECT'
+			}
+		`)
+	}},
+	{name: "default-handler", matcher: (url) => true, handler: (req, res) => {
+		const ctx = {res, req}
+		Promise.resolve()
+		.then(() => proxy.protect(ctx))
+		.then(() => proxy.authenticate(ctx))
+		.then(() => hook.request.before(ctx))
+		.then(() => proxy.filter(ctx))
+		.then(() => proxy.log(ctx))
+		.then(() => proxy.mitm.request(ctx))
+		.then(() => hook.request.after(ctx))
+		.then(() => proxy.mitm.response(ctx))
+		.catch(() => proxy.mitm.close(ctx))
+	}}
+]
+
 const proxy = {
 	core: {
+		requestDispatcher: (req, res) => {
+			// dispatch requests to their corresponding handlers
+
+		},
 		mitm: (req, res) => {
-			if (req.url == '/proxy.pac') {
-				const url = parse('http://' + req.headers.host)
-				res.writeHead(200, {'Content-Type': 'application/x-ns-proxy-autoconfig'})
-				res.end(`
-					function FindProxyForURL(url, host) {
-						if (${Array.from(hook.target.host).map(host => (`host == '${host}'`)).join(' || ')}) {
-							return 'PROXY ${url.hostname}:${url.port || 80}'
-						}
-						return 'DIRECT'
-					}
-				`)
-			}
-			else {
-				const ctx = {res, req}
-				Promise.resolve()
-				.then(() => proxy.protect(ctx))
-				.then(() => proxy.authenticate(ctx))
-				.then(() => hook.request.before(ctx))
-				.then(() => proxy.filter(ctx))
-				.then(() => proxy.log(ctx))
-				.then(() => proxy.mitm.request(ctx))
-				.then(() => hook.request.after(ctx))
-				.then(() => proxy.mitm.response(ctx))
-				.catch(() => proxy.mitm.close(ctx))
+			for(const ruleId in requestHandler) {
+				const rule = requestHandler[ruleId]
+				if (rule.matcher(req.url)) {
+					console.log('Rule ' + rule.name + ' matched url ' + req.url)
+					rule.handler(req, res)
+					break
+				}
 			}
 		},
 		tunnel: (req, socket, head) => {
