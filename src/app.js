@@ -12,6 +12,7 @@ const config = require('./cli.js')
 .option(['-t', '--token'], {metavar: 'token', help: 'set up proxy authentication'})
 .option(['-e', '--endpoint'], {metavar: 'url', help: 'replace virtual endpoint with public host'})
 .option(['-s', '--strict'], {action: 'store_true', help: 'enable proxy limitation'})
+.option(['-c', '--block-comments'], {action: 'store_true', help: 'let cloudmusic not displaying music comments'})
 .option(['-h', '--help'], {action: 'help'})
 .parse(process.argv)
 
@@ -61,6 +62,7 @@ const target = Array.from(hook.target.host)
 global.port = config.port
 global.proxy = config.proxyUrl ? parse(config.proxyUrl) : null
 global.hosts = target.reduce((result, host) => Object.assign(result, {[host]: config.forceHost}), {})
+global.blockComments = config.blockComments
 server.whitelist = ['://[\\w.]*music\\.126\\.net', '://[\\w.]*vod\\.126\\.net']
 if (config.strict) server.blacklist.push('.*')
 server.authentication = config.token || null

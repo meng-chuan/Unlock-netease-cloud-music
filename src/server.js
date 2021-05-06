@@ -11,7 +11,9 @@ const request = require('./request')
 // a request will be tried to match the handlers one by one
 // then it will be only dispatched to the first matched rule
 const requestHandlers = [
-	{name: "block-comments", matcher: (url) => url.startsWith('http://interface.music.163.com/eapi/v1/resource/comments/'), handler: (req, res) => {
+	{name: "block-comments", matcher: (url) =>
+		global.blockComments && url.includes('/eapi/v1/resource/comments/')
+	, handler: (req, res) => {
 		// copied from old request handling code
 		const ctx = {res, req}
 		Promise.resolve()
