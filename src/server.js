@@ -7,18 +7,19 @@ const sni = require('./sni')
 const hook = require('./hook')
 const request = require('./request')
 
-const requestHandler = [
+// the sorted handler list
+// a request will be tried to match the handlers one by one
+// then it will be only dispatched to the first matched rule
+const requestHandlers = [
 	{name: "block-comments", matcher: (url) => url.startsWith('http://interface.music.163.com/eapi/v1/resource/comments/'), handler: (req, res) => {
+		// copied from old request handling code
 		const ctx = {res, req}
 		Promise.resolve()
-		// .then(() => proxy.protect(ctx))
-		// .then(() => proxy.authenticate(ctx))
-		// .then(() => hook.request.before(ctx))
-		// .then(() => proxy.filter(ctx))
+		.then(() => hook.request.before(ctx))
 		.then(() => proxy.log(ctx))
-		// .then(() => proxy.mitm.request(ctx))
-		// .then(() => hook.request.after(ctx))
-		// .then(() => proxy.mitm.response(ctx))
+		.then(() => proxy.mitm.fakeRequest(ctx))
+		.then(() => hook.request.after(ctx))
+		.then(() => proxy.mitm.response(ctx))
 		.catch(() => proxy.mitm.close(ctx))
 	}},
 	{name: "get-pac-config", matcher: (url) => url == '/proxy.pac', handler: (req, res) => {
@@ -50,9 +51,12 @@ const requestHandler = [
 
 const proxy = {
 	core: {
+		// handle and dispatch all client requests
 		mitm: (req, res) => {
-			for(const ruleId in requestHandler) {
-				const rule = requestHandler[ruleId]
+			// match predefined rule list in sequence
+			// once matched, use that rule to process this request, then stop iterating
+			for(const ruleId in requestHandlers) {
+				const rule = requestHandlers[ruleId]
 				if (rule.matcher(req.url)) {
 					console.log('Rule ' + rule.name + ' matched url ' + req.url)
 					rule.handler(req, res)
@@ -129,6 +133,12 @@ const proxy = {
 			ctx.proxyReq = request.create(url)(options)
 			.on('response', proxyRes => resolve(ctx.proxyRes = proxyRes))
 			.on('error', error => reject(ctx.error = error))
+			req.readable ? req.pipe(ctx.proxyReq) : ctx.proxyReq.end(req.body)
+		}),
+		fakeRequest: ctx => new Promise((resolve, reject) => {
+			// make a dummy response
+			const {req} = ctx
+			resolve(ctx.proxyRes = '')
 			req.readable ? req.pipe(ctx.proxyReq) : ctx.proxyReq.end(req.body)
 		}),
 		response: ctx => {
